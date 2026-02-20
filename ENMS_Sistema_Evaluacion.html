@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Evaluación — UG ENMS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+:root{
+  --bg:#f0f4fb; --surface:#ffffff; --surface2:#e4ecf7; --border:#b8cde8;
+  --ug-blue:#003f8a; --ug-blue2:#0057b7; --ug-blue3:#1a6db5;
+  --ug-gold:#f5a800; --ug-gold2:#ffcc44;
+  --ink:#0d1e35; --ink2:#3a5070; --ink3:#7090b0;
+  --success:#1a7a3a; --warning:#a06000; --danger:#cc2222;
+  --sidebar-w:240px;
+  --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;}
+
+/* TOPBAR */
+.topbar{
+  height:56px; background:var(--ug-blue);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px; position:fixed; top:0; left:0; right:0; z-index:200;
+  box-shadow:0 2px 12px rgba(0,63,138,0.3);
+}
+.topbar-logo{display:flex;align-items:center;gap:12px;}
+.topbar-logo .escudo{width:36px;height:36px;background:var(--ug-gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--ug-blue);font-family:var(--mono);}
+.topbar-title{color:#fff;font-family:var(--mono);font-size:12px;letter-spacing:0.12em;text-transform:uppercase;}
+.topbar-title span{color:var(--ug-gold2);}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.topbar-badge{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,0.12);color:#cce4ff;padding:4px 12px;border-radius:20px;letter-spacing:0.08em;}
+
+/* LAYOUT */
+.layout{display:flex;margin-top:56px;min-height:calc(100vh - 56px);}
+
+/* SIDEBAR */
+.sidebar{
+  width:var(--sidebar-w); background:var(--ug-blue);
+  position:fixed; top:56px; left:0; bottom:0;
+  display:flex; flex-direction:column;
+  overflow-y:auto; z-index:100;
+}
+.sidebar-section{padding:20px 16px 8px;font-family:var(--mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+.nav-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 16px; cursor:pointer;
+  color:rgba(255,255,255,0.6); font-size:13px; font-weight:500;
+  transition:all 0.2s; border-left:3px solid transparent;
+  text-decoration:none;
+}
+.nav-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.nav-item.active{background:rgba(245,168,0,0.15);color:#fff;border-left-color:var(--ug-gold);}
+.nav-item .nav-icon{font-size:16px;min-width:20px;text-align:center;}
+.nav-item .nav-label{flex:1;}
+.nav-item .nav-badge{font-family:var(--mono);font-size:9px;background:var(--ug-gold);color:var(--ug-blue);padding:1px 6px;border-radius:10px;font-weight:700;}
+.nav-divider{height:1px;background:rgba(255,255,255,0.1);margin:8px 16px;}
+.sidebar-footer{margin-top:auto;padding:16px;font-size:10px;color:rgba(255,255,255,0.25);font-family:var(--mono);text-align:center;border-top:1px solid rgba(255,255,255,0.1);}
+
+/* MAIN CONTENT */
+.main{margin-left:var(--sidebar-w);flex:1;padding:32px;min-width:0;}
+.section{display:none;animation:fadeIn 0.25s ease;} .section.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* PAGE HEADER */
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--ug-blue);}
+.page-hdr-left h2{font-size:24px;font-weight:700;letter-spacing:-0.02em;color:var(--ug-blue);}
+.page-hdr-left p{color:var(--ink3);font-size:13px;margin-top:4px;}
+.page-hdr-num{font-family:var(--mono);font-size:56px;font-weight:700;color:var(--border);line-height:1;}
+
+/* CARDS */
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:22px;margin-bottom:18px;}
+.card-top{font-family:var(--mono);font-size:10px;letter-spacing:0.15em;color:var(--ug-gold);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-top::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+label{font-size:10px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:0.06em;}
+input,select,textarea{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--ink);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.2s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--ug-blue);}
+select option{background:var(--surface);}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border:none;border-radius:8px;font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-primary{background:var(--ug-blue);color:#fff;}.btn-primary:hover{background:var(--ug-blue2);transform:translateY(-1px);}
+.btn-gold{background:var(--ug-gold);color:var(--ug-blue);}.btn-gold:hover{background:var(--ug-gold2);}
+.btn-outline{background:transparent;color:var(--ug-blue);border:1.5px solid var(--ug-blue);}.btn-outline:hover{background:var(--ug-blue);color:#fff;}
+.btn-danger{background:transparent;color:var(--danger);border:1.5px solid var(--danger);}.btn-danger:hover{background:var(--danger);color:#fff;}
+.btn-sm{padding:5px 11px;font-size:11px;}
+.btn-green{background:var(--success);color:#fff;}
+.btns-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px;border-left:3px solid;}
+.alert.info{background:#e8f0fb;border-color:var(--ug-blue);color:var(--ug-blue);}
+.alert.warn{background:#fff8e1;border-color:var(--ug-gold);color:#8a5c00;}
+.alert.success{background:#e8f5e9;border-color:var(--success);color:var(--success);}
+.alert.danger{background:#fdecea;border-color:var(--danger);color:var(--danger);}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.stat{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.stat.blue::before{background:var(--ug-blue);} .stat.gold::before{background:var(--ug-gold);}
+.stat.green::before{background:var(--success);} .stat.red::before{background:var(--danger);}
+.stat.navy::before{background:var(--ug-blue2);}
+.stat-lbl{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;}
+.stat-val{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--ink);}
+.stat-sub{font-size:10px;color:var(--ink3);margin-top:2px;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--ug-blue);}
+th{padding:10px 13px;text-align:left;font-family:var(--mono);font-size:9px;letter-spacing:0.08em;color:rgba(255,255,255,0.8);text-transform:uppercase;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.15s;}
+tbody tr:hover{background:var(--surface2);}
+tbody tr:last-child{border-bottom:none;}
+td{padding:9px 13px;}
+
+/* BADGES */
+.cal-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-family:var(--mono);font-size:11px;font-weight:700;}
+.cal-badge.A{background:#d4edda;color:#1a7a3a;} .cal-badge.B{background:#cce4ff;color:#003f8a;}
+.cal-badge.C{background:#fff3cc;color:#a06000;} .cal-badge.D{background:#ffd5d5;color:#cc2222;}
+.enms-tag{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:20px;background:#cce4ff;color:#003f8a;}
+.rank-num{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--border);}
+.rank-num.r1{color:var(--ug-gold);} .rank-num.r2{color:var(--ink3);} .rank-num.r3{color:#b07030;}
+
+/* UPLOAD */
+.upload-zone{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all 0.2s;}
+.upload-zone:hover{border-color:var(--ug-blue);background:#eef4ff;}
+.upload-icon{font-size:32px;margin-bottom:8px;}
+
+/* BLOQUE */
+.bloque-box{border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;background:var(--surface2);}
+.bloque-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.bloque-badge{font-family:var(--mono);font-size:10px;background:var(--ug-blue);color:#fff;padding:3px 10px;border-radius:20px;}
+.react-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:7px;margin-top:8px;}
+.react-item{display:flex;align-items:center;gap:7px;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:7px 11px;}
+.react-num{font-family:var(--mono);font-size:10px;color:var(--ug-blue);min-width:26px;font-weight:700;}
+.pond-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.pond-val{font-family:var(--mono);font-size:20px;font-weight:700;}
+.pond-val.ok{color:var(--success);} .pond-val.warn{color:var(--warning);} .pond-val.bad{color:var(--danger);}
+
+/* CHIPS */
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px;}
+.chip{padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink3);cursor:pointer;font-size:11px;font-weight:600;transition:all 0.2s;}
+.chip.active{background:var(--ug-blue);color:#fff;border-color:var(--ug-blue);}
+.chip:hover:not(.active){border-color:var(--ug-blue);color:var(--ug-blue);}
+
+/* FILTER BAR */
+.fbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+.fbar input,.fbar select{padding:7px 11px;font-size:12px;width:auto;}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+/* PROG */
+.prog{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:3px;}
+.prog-f{height:100%;border-radius:4px;transition:width 0.5s;}
+
+/* HISTOGRAM */
+.histo{display:flex;align-items:flex-end;gap:3px;height:60px;}
+.hcol{flex:1;display:flex;flex-direction:column;align-items:center;}
+.hbar{width:100%;border-radius:2px 2px 0 0;min-height:2px;}
+.hlbl{font-size:8px;color:var(--ink3);margin-top:2px;}
+
+/* HBAR HORIZONTAL */
+.hb-wrap{margin-bottom:10px;}
+.hb-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+.hb-label span:first-child{color:var(--ink2);}
+.hb-label span:last-child{font-family:var(--mono);font-weight:700;color:var(--ug-blue);}
+.hb{height:9px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.hb-f{height:100%;border-radius:4px;transition:width 0.6s;}
+
+/* PODIUM */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:24px 0;}
+.podium-item{display:flex;flex-direction:column;align-items:center;width:150px;}
+.pod-name{font-family:var(--sans);font-size:12px;font-weight:700;text-align:center;margin-bottom:6px;color:var(--ink);line-height:1.2;}
+.pod-score{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ug-gold);margin-bottom:3px;}
+.pod-sub{font-size:11px;color:var(--ink3);}
+.pod-block{width:100%;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.pod-block.p1{height:90px;background:linear-gradient(135deg,var(--ug-gold),var(--ug-gold2));}
+.pod-block.p2{height:65px;background:linear-gradient(135deg,var(--ug-blue),var(--ug-blue3));}
+.pod-block.p3{height:45px;background:linear-gradient(135deg,#5a8abd,#94b8e0);}
+
+/* SCORE BAR INLINE */
+.sbar-wrap{display:flex;align-items:center;gap:8px;}
+.sbar{height:6px;background:var(--surface2);border-radius:3px;flex:1;overflow:hidden;}
+.sbar-f{height:100%;border-radius:3px;transition:width 0.5s;}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:var(--ink3);}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:0.4;}
+
+/* ESCUELA CARDS */
+.esc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:24px;}
+.esc-card{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:18px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.esc-card:hover{border-color:var(--ug-gold);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,63,138,0.1);}
+.esc-card::after{content:attr(data-rank);position:absolute;top:-8px;right:12px;font-family:var(--mono);font-size:60px;font-weight:700;color:var(--surface2);line-height:1;pointer-events:none;}
+.esc-name{font-family:var(--sans);font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ug-blue);}
+.esc-stats{display:flex;gap:16px;}
+.esc-stat-val{font-family:var(--mono);font-size:20px;font-weight:700;}
+.esc-stat-lbl{font-size:10px;color:var(--ink3);}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;}
+.tab-btn{padding:9px 20px;background:transparent;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--ink3);cursor:pointer;transition:all 0.2s;}
+.tab-btn.active{color:var(--ug-blue);border-bottom-color:var(--ug-gold);}
+.tab-content{display:none;} .tab-content.active{display:block;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--surface2);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--ug-blue3);}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="escudo">UG</div>
+    <div class="topbar-title">SISTEMA DE <span>EVALUACIÓN</span> — ENMS</div>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-badge" id="tb-status">Sin datos cargados</span>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section">Captura</div>
+  <div class="nav-item active" onclick="nav('kardex',this)"><span class="nav-icon">📊</span><span class="nav-label">Kardex</span></div>
+  <div class="nav-item" onclick="nav('config',this)"><span class="nav-icon">⚙️</span><span class="nav-label">Configurar Examen</span></div>
+  <div class="nav-item" onclick="nav('respuestas',this)"><span class="nav-icon">✅</span><span class="nav-label">Respuestas Correctas</span></div>
+  <div class="nav-item" onclick="nav('lector',this)"><span class="nav-icon">📂</span><span class="nav-label">Lector Óptico</span></div>
+  <div class="nav-divider"></div>
+  <div class="sidebar-section">Análisis</div>
+  <div class="nav-item" onclick="nav('resultados',this)"><span class="nav-icon">📈</span><span class="nav-label">Resultados</span><span class="nav-badge" id="nb-res" style="display:none">0</span></div>
+  <div class="nav-item" onclick="nav('esc',this)"><span class="nav-icon">🏫</span><span class="nav-label">Ranking Escuelas</span></div>
+  <div class="nav-item" onclick="nav('mat',this)"><span class="nav-icon">📚</span><span class="nav-label">Ranking Materias</span></div>
+  <div class="nav-item" onclick="nav('prof',this)"><span class="nav-icon">👨‍🏫</span><span class="nav-label">Ranking Profesores</span></div>
+  <div class="nav-item" onclick="nav('alum',this)"><span class="nav-icon">🎓</span><span class="nav-label">Ranking Alumnos</span></div>
+  <div class="nav-divider"></div>
+  <div class="sidebar-section">Exportar</div>
+  <div class="nav-item" onclick="nav('reportes',this)"><span class="nav-icon">💾</span><span class="nav-label">Reportes & Excel</span></div>
+  <div class="sidebar-footer">UG ENMS © 2025</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- KARDEX -->
+<div id="sec-kardex" class="section active">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Visor de Kardex</h2><p>Carga el Excel del kardex por materia. El NUA es la llave de cruce.</p></div><div class="page-hdr-num">01</div></div>
+  <div class="card">
+    <div class="card-top">Cargar Excel del Kardex</div>
+    <div class="alert info">📌 Columnas requeridas: NUA, PATERNO, MATERNO, nombre del alumno, GRUPO, Profesor (NOMBRE_COMPLETO), ENMS. Puede tener una hoja por materia o columna de materia.</div>
+    <div class="upload-zone" onclick="document.getElementById('kfile').click()">
+      <div class="upload-icon">📊</div>
+      <p style="font-weight:600;color:var(--ug-blue);">Haz clic para cargar el Excel</p>
+      <p style="font-size:11px;margin-top:4px;color:var(--ink3);">Soporta .xlsx, .xls</p>
+    </div>
+    <input type="file" id="kfile" accept=".xlsx,.xls" style="display:none" onchange="cargarK(this)">
+  </div>
+  <div id="k-preview" style="display:none;">
+    <div class="stats-grid" id="k-stats"></div>
+    <div class="card">
+      <div class="card-top">Datos del Kardex</div>
+      <div class="chips" id="k-chips"></div>
+      <div class="fbar">
+        <input type="text" id="k-q" placeholder="🔍 Buscar NUA o nombre..." oninput="filtK()" style="width:220px;">
+        <select id="k-enms" onchange="filtK()"><option value="">Todas las escuelas</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>NUA</th><th>Nombre</th><th>Grupo</th><th>Materia</th><th>Profesor</th><th>ENMS</th></tr></thead>
+        <tbody id="k-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG EXAMEN -->
+<div id="sec-config" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Configurar Examen</h2><p>Define bloques y peso decimal de cada reactivo. Suma total = 1.0 → base 100.</p></div><div class="page-hdr-num">02</div></div>
+  <div class="card">
+    <div class="card-top">Datos del Examen</div>
+    <div class="alert info">⚖️ Cada reactivo tiene peso decimal individual. Suma de todos = 1.0 exacto. Calificación = suma pesos correctos × 100.</div>
+    <div class="form-grid">
+      <div class="fg"><label>Del Kardex</label><select id="mat-ksel" onchange="selMK()"><option value="">— Selecciona —</option></select></div>
+      <div class="fg"><label>Nombre Materia</label><input type="text" id="mat-nom" placeholder="Ej. BIOLOGÍA I"></div>
+      <div class="fg"><label>Clave</label><input type="text" id="mat-clave" placeholder="Ej. NEBA0300S"></div>
+      <div class="fg"><label>Periodo</label><input type="text" id="mat-per" placeholder="Ej. 30110"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-top">Bloques y Reactivos</div>
+    <div id="bloques-c"></div>
+    <div class="pond-row">
+      <button class="btn btn-outline btn-sm" onclick="addB()">+ Agregar Bloque</button>
+      <span style="font-size:11px;color:var(--ink3);">Suma total pesos:</span>
+      <span id="pond-tot" class="pond-val bad">0.0000</span>
+      <span style="font-size:12px;color:var(--ink3);">/ 1.0000</span>
+      <span id="pond-eq" style="font-size:11px;color:var(--ug-blue);font-family:var(--mono);"></span>
+    </div>
+  </div>
+  <div class="btns-row" style="justify-content:flex-end;">
+    <button class="btn btn-outline" onclick="resetM()">Limpiar</button>
+    <button class="btn btn-primary" onclick="guardarM()">Guardar → Respuestas ✓</button>
+  </div>
+</div>
+
+<!-- RESPUESTAS -->
+<div id="sec-respuestas" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Respuestas Correctas</h2><p>Asigna la respuesta correcta para cada reactivo con su peso decimal.</p></div><div class="page-hdr-num">03</div></div>
+  <div id="resp-vacio" class="card"><div class="empty"><div class="empty-icon">📋</div><p>Configura un examen en el paso 02 primero</p></div></div>
+  <div id="resp-c" style="display:none;">
+    <div class="chips" id="resp-chips"></div>
+    <div id="resp-bloques"></div>
+    <div class="btns-row" style="justify-content:flex-end;">
+      <button class="btn btn-primary" onclick="nav('lector',document.querySelector('.nav-item:nth-child(7)'))">Guardar → Lector Óptico ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- LECTOR OPTICO -->
+<div id="sec-lector" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Lector Óptico</h2><p>[6 NUA][1 cód.barras][respuestas A/B/C/D…]</p></div><div class="page-hdr-num">04</div></div>
+  <div class="two-col">
+    <div>
+      <div class="card">
+        <div class="card-top">Materia a Evaluar</div>
+        <div class="fg" style="margin-bottom:12px;"><label>Materia</label>
+          <select id="lec-mat" onchange="infoLec()"><option value="">— Selecciona —</option></select></div>
+        <div id="lec-info"></div>
+      </div>
+      <div class="card">
+        <div class="card-top">Datos del Lector</div>
+        <div class="upload-zone" onclick="document.getElementById('lfile').click()">
+          <div class="upload-icon">📂</div>
+          <p style="font-weight:600;color:var(--ug-blue);">Clic o arrastra el archivo</p>
+          <p style="font-size:11px;margin-top:3px;color:var(--ink3);">.xlsx .csv .txt</p>
+        </div>
+        <input type="file" id="lfile" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="handleLec(this)">
+        <div style="margin-top:12px;">
+          <div class="fg"><label>O pega los datos (uno por línea)</label>
+            <textarea id="lec-txt" rows="7" placeholder="3757111BAADACBCCCBBCAD&#10;3756371BAACBABACCBAAD" style="font-family:var(--mono);font-size:11px;"></textarea></div>
+          <button class="btn btn-gold" style="margin-top:10px;width:100%;font-size:13px;" onclick="evaluar()">⚡ Evaluar Examen</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-top">Vista Previa</div>
+      <div id="lec-prev"><div class="empty"><div class="empty-icon">👁</div><p style="font-size:12px;">Los datos aparecerán aquí</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTADOS -->
+<div id="sec-resultados" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Resultados</h2><p>Calificación = suma pesos decimales correctos × 100</p></div><div class="page-hdr-num">05</div></div>
+  <div id="res-vacio" class="card"><div class="empty"><div class="empty-icon">📊</div><p>Procesa datos en el paso 04</p></div></div>
+  <div id="res-c" style="display:none;">
+    <div class="chips" id="res-chips"></div>
+    <div class="stats-grid" id="res-stats"></div>
+    <div class="two-col" style="margin-bottom:16px;">
+      <div class="card"><div class="card-top">Distribución</div><div id="res-histo"></div></div>
+      <div class="card"><div class="card-top">Rendimiento por Bloque</div><div id="res-bloq"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-top">Tabla de Resultados</div>
+      <div class="fbar">
+        <input type="text" id="res-q" placeholder="🔍 NUA o nombre..." oninput="filtRes()" style="width:190px;">
+        <select id="res-rng" onchange="filtRes()"><option value="">Todos</option><option value="A">Excelente 90-100</option><option value="B">Bien 70-89</option><option value="C">Suficiente 60-69</option><option value="D">Reprobado</option></select>
+        <select id="res-enms" onchange="filtRes()"><option value="">Todas las escuelas</option></select>
+      </div>
+      <div class="tbl-wrap"><table><thead><tr id="res-thead"><th>#</th><th>NUA</th><th>Nombre</th><th>Grupo</th><th>Profesor</th><th>ENMS</th><th>Calificación</th><th>Aciertos</th></tr></thead><tbody id="res-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- RANKING ESCUELAS -->
+<div id="sec-esc" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Ranking de Escuelas</h2><p>Comparativa de desempeño por plantel</p></div><div class="page-hdr-num">06</div></div>
+  <div id="esc-vacio" class="card"><div class="empty"><div class="empty-icon">🏫</div><p>Carga y evalúa datos primero</p></div></div>
+  <div id="esc-c" style="display:none;">
+    <div class="chips" id="esc-chips"></div>
+    <div id="esc-podio"></div>
+    <div class="esc-grid" id="esc-grid"></div>
+    <div class="card">
+      <div class="card-top">Tabla Comparativa</div>
+      <div class="fbar">
+        <input type="text" placeholder="🔍 Buscar escuela..." oninput="filtEsc(this.value)" style="width:200px;">
+        <select onchange="ordEsc(this.value)"><option value="promedio">Por Promedio</option><option value="pct">Por % Aprobados</option><option value="alumnos">Por Nº Alumnos</option></select>
+      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Escuela</th><th>Alumnos</th><th>Promedio</th><th>% Aprobados</th><th>Máx</th><th>Mín</th><th>Materias</th></tr></thead><tbody id="esc-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- RANKING MATERIAS -->
+<div id="sec-mat" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Ranking de Materias</h2><p>Comparativa entre materias evaluadas</p></div><div class="page-hdr-num">07</div></div>
+  <div id="mat-vacio" class="card"><div class="empty"><div class="empty-icon">📚</div><p>Carga y evalúa datos primero</p></div></div>
+  <div id="mat-c" style="display:none;">
+    <div class="chips" id="mat-chips"></div>
+    <div class="two-col" style="margin-bottom:18px;">
+      <div class="card"><div class="card-top">Promedio por Materia</div><div id="mat-bprom"></div></div>
+      <div class="card"><div class="card-top">% Aprobados por Materia</div><div id="mat-bapro"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-top">Tabla de Materias</div>
+      <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Materia</th><th>Clave</th><th>Alumnos</th><th>Promedio</th><th>% Aprobados</th><th>Máx</th><th>Mín</th><th>Desv.</th></tr></thead><tbody id="mat-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- RANKING PROFESORES -->
+<div id="sec-prof" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Ranking de Profesores</h2><p>Desempeño docente: promedio y % de aprobados</p></div><div class="page-hdr-num">08</div></div>
+  <div id="prof-vacio" class="card"><div class="empty"><div class="empty-icon">👨‍🏫</div><p>Carga y evalúa datos primero</p></div></div>
+  <div id="prof-c" style="display:none;">
+    <div class="tabs"><button class="tab-btn active" onclick="stab('prof','gen',this)">General</button><button class="tab-btn" onclick="stab('prof','mat',this)">Por Materia</button><button class="tab-btn" onclick="stab('prof','esc',this)">Por Escuela</button></div>
+    <div id="prof-gen" class="tab-content active">
+      <div id="prof-podio"></div>
+      <div class="card"><div class="card-top">Ranking General</div>
+        <div class="fbar"><input type="text" placeholder="🔍 Buscar profesor..." oninput="filtProf(this.value)" style="width:230px;"></div>
+        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Profesor</th><th>Grupos</th><th>Alumnos</th><th>Promedio</th><th>% Aprobados</th><th>Materias</th></tr></thead><tbody id="prof-tbody"></tbody></table></div>
+      </div>
+    </div>
+    <div id="prof-mat" class="tab-content">
+      <div class="chips" id="prof-mchips"></div>
+      <div class="card"><div class="card-top">Por Materia</div>
+        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Profesor</th><th>Escuela</th><th>Alumnos</th><th>Promedio</th><th>% Aprobados</th></tr></thead><tbody id="prof-mtbody"></tbody></table></div>
+      </div>
+    </div>
+    <div id="prof-esc" class="tab-content">
+      <div class="chips" id="prof-echips"></div>
+      <div class="card"><div class="card-top">Por Escuela</div>
+        <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Profesor</th><th>Materia</th><th>Alumnos</th><th>Promedio</th><th>% Aprobados</th></tr></thead><tbody id="prof-etbody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RANKING ALUMNOS -->
+<div id="sec-alum" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Ranking de Alumnos</h2><p>Listado completo con filtros avanzados</p></div><div class="page-hdr-num">09</div></div>
+  <div id="alum-vacio" class="card"><div class="empty"><div class="empty-icon">🎓</div><p>Carga y evalúa datos primero</p></div></div>
+  <div id="alum-c" style="display:none;">
+    <div class="fbar">
+      <input type="text" id="alum-q" placeholder="🔍 NUA..." oninput="filtAlum()" style="width:160px;">
+      <select id="alum-enms" onchange="filtAlum()"><option value="">Todas las escuelas</option></select>
+      <select id="alum-mat" onchange="filtAlum()"><option value="">Todas las materias</option></select>
+      <select id="alum-rng" onchange="filtAlum()"><option value="">Todos</option><option value="A">Excelente</option><option value="B">Bien</option><option value="C">Suficiente</option><option value="D">Reprobado</option></select>
+      <button class="btn btn-outline btn-sm" onclick="expAlum()">⬇ CSV</button>
+    </div>
+    <div class="card">
+      <div class="card-top">Alumnos <span id="alum-cnt" style="color:var(--ink3);font-family:var(--mono);"></span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>#</th><th>NUA</th><th>Nombre</th><th>Materia</th><th>Escuela</th><th>Grupo</th><th>Profesor</th><th>Calificación</th><th>Rango</th></tr></thead><tbody id="alum-tbody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTES -->
+<div id="sec-reportes" class="section">
+  <div class="page-hdr"><div class="page-hdr-left"><h2>Reportes & Exportación</h2><p>Genera Excel por escuela con formato institucional UG</p></div><div class="page-hdr-num">10</div></div>
+  <div id="rep-vacio" class="card"><div class="empty"><div class="empty-icon">💾</div><p>Carga y evalúa datos primero</p></div></div>
+  <div id="rep-c" style="display:none;">
+    <div class="card">
+      <div class="card-top">Configuración del Reporte</div>
+      <div class="form-grid">
+        <div class="fg"><label>Institución</label><input type="text" id="rep-inst" value="Universidad de Guanajuato — CNMS"></div>
+        <div class="fg"><label>Periodo</label><input type="text" id="rep-per" value="Agosto - Diciembre 2025"></div>
+        <div class="fg"><label>Tipo</label><input type="text" id="rep-tipo" value="Exámenes Departamentales"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-top">Exportar por Escuela</div>
+      <div class="alert info">📊 Un archivo .xlsx por escuela con el formato institucional: grupos, bloques con aciertos y calificación, global y ENMS.</div>
+      <div id="rep-lista"></div>
+      <div class="btns-row" style="margin-top:16px;">
+        <button class="btn btn-gold" onclick="expTodas()">⬇ Exportar TODAS las Escuelas</button>
+        <button class="btn btn-primary" onclick="expRankingXLS()">⬇ Ranking General Excel</button>
+        <button class="btn btn-outline" onclick="expJSON()">💾 Exportar JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ===== STATE =====
+var KD={};      // kardex: {materia:[{nua,nombre,...}]}
+var MATS={};    // examenes: {nombre:{bloques,respuestas}}
+var RES=[];     // resultados evaluados
+var MATACT=null;
+var BC=0;
+var KMAT=null;
+// ranking state
+var ESCMAT='TODAS', MATESC='TODAS', PROFMAT=null, PROFESC=null, DASHMAT=null;
+
+// ===== NAV =====
+function nav(id,el){
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  document.getElementById('sec-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  var fn={esc:renderEsc,mat:renderMat,prof:renderProf,alum:renderAlum,reportes:renderRep,resultados:renderRes,respuestas:renderResp,lector:renderLec};
+  if(fn[id]) fn[id]();
+}
+
+// ===== HELPERS =====
+function prom(a){return a.length?(a.reduce(function(s,v){return s+v;},0)/a.length):0;}
+function pct60(a){return a.length?(a.filter(function(c){return c>=60;}).length/a.length*100):0;}
+function desv(a){if(a.length<2)return 0;var m=prom(a);return Math.sqrt(a.reduce(function(s,x){return s+Math.pow(x-m,2);},0)/a.length);}
+function rng(c){return c>=90?'A':c>=70?'B':c>=60?'C':'D';}
+function rngl(r){return{A:'Excelente',B:'Bien',C:'Suficiente',D:'Reprobado'}[r];}
+function med(i){return i===0?'🥇':i===1?'🥈':i===2?'🥉':'';}
+function colBar(p){return p>=70?'var(--success)':p>=50?'var(--ug-gold)':'var(--danger)';}
+function calBadge(c){var r=rng(c);return '<span class="cal-badge '+r+'">'+c.toFixed(1)+'</span>';}
+function rnkRow(i,r1,extra){return'<span class="rank-num'+(i<3?' r'+(i+1):'')+'">'+( med(i)||i+1)+'</span>';}
+
+function getEscs(){return[...new Set(RES.map(function(r){return r.enms;}).filter(Boolean))].sort();}
+function getMats(){return[...new Set(RES.map(function(r){return r.materia;}).filter(Boolean))].sort();}
+function getProfs(){return[...new Set(RES.map(function(r){return r.profesor;}).filter(Boolean))].sort();}
+
+function updStatus(){
+  var n=RES.length;
+  document.getElementById('tb-status').textContent=n?n+' registros · '+getMats().length+' materias · '+getEscs().length+' escuelas':'Sin datos cargados';
+  var nb=document.getElementById('nb-res');
+  if(n){nb.style.display='';nb.textContent=n;}else{nb.style.display='none';}
+}
+
+// ===== KARDEX =====
+function cargarK(input){
+  var f=input.files[0]; if(!f)return;
+  var r=new FileReader();
+  r.onload=function(e){
+    var wb=XLSX.read(e.target.result,{type:'array'});
+    wb.SheetNames.forEach(function(sn){
+      var ws=wb.Sheets[sn];
+      var rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rows.length)return;
+      var ks=Object.keys(rows[0]);
+      function fc(ns){return ks.find(function(k){return ns.some(function(n){return k.toUpperCase().indexOf(n)>=0;});});}
+      var cN=fc(['NUA']),cP=fc(['PATERNO']),cM=fc(['MATERNO']),cNom=fc(['ALUMNO_NOMBRE','NOMBRE_COMPLETO_ALUMNO','NOMBRE']),cG=fc(['GRUPO','ACADEMICO_GRUPO']),cPr=fc(['NOMBRE_COMPLETO','EMPLEADO','PROFESOR']),cE=fc(['ENMS','ESCUELA']),cMat=fc(['PROGRAMA_MATERIA_NOMBRE','MATERIA','PROGRAMA']);
+      rows.forEach(function(row){
+        var nua=String(row[cN]||'').trim().substring(0,6); if(!nua)return;
+        var mat=cMat?String(row[cMat]||'').trim():sn;
+        if(!KD[mat])KD[mat]=[];
+        var nom=cNom?String(row[cNom]||'').trim():[row[cP]||'',row[cM]||''].filter(Boolean).join(' ').trim();
+        KD[mat].push({nua:nua,nombre:nom||nua,paterno:String(row[cP]||''),materno:String(row[cM]||''),grupo:String(row[cG]||''),profesor:String(row[cPr]||''),enms:String(row[cE]||'')});
+      });
+    });
+    renderKPrev(); updMSels();
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function renderKPrev(){
+  var mls=Object.keys(KD), tot=Object.values(KD).reduce(function(s,v){return s+v.length;},0);
+  var ens=new Set(Object.values(KD).flat().map(function(r){return r.enms;}).filter(Boolean));
+  document.getElementById('k-preview').style.display='block';
+  document.getElementById('k-stats').innerHTML=
+    '<div class="stat blue"><div class="stat-lbl">Materias</div><div class="stat-val">'+mls.length+'</div></div>'+
+    '<div class="stat gold"><div class="stat-lbl">Registros</div><div class="stat-val">'+tot+'</div></div>'+
+    '<div class="stat green"><div class="stat-lbl">Escuelas</div><div class="stat-val">'+ens.size+'</div></div>'+
+    '<div class="stat navy"><div class="stat-lbl">NUA únicos</div><div class="stat-val">'+new Set(Object.values(KD).flat().map(function(r){return r.nua;})).size+'</div></div>';
+  document.getElementById('k-chips').innerHTML=mls.map(function(m,i){return '<div class="chip'+(i===0?' active':'')+'" onclick="selKM(\''+m+'\',this)">'+m+'</div>';}).join('');
+  KMAT=mls[0];
+  var esel=document.getElementById('k-enms');
+  esel.innerHTML='<option value="">Todas las escuelas</option>'+[...ens].sort().map(function(e){return '<option>'+e+'</option>';}).join('');
+  filtK();
+}
+
+function selKM(m,el){KMAT=m;document.querySelectorAll('#k-chips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');filtK();}
+function filtK(){
+  var q=document.getElementById('k-q').value.toLowerCase(),en=document.getElementById('k-enms').value,m=KMAT||Object.keys(KD)[0];
+  if(!m)return;
+  var d=(KD[m]||[]).filter(function(r){return(!q||(r.nua.includes(q)||r.nombre.toLowerCase().includes(q)))&&(!en||r.enms===en);}).slice(0,100);
+  document.getElementById('k-tbody').innerHTML=d.map(function(r){return'<tr><td style="font-family:var(--mono);font-weight:700;">'+r.nua+'</td><td>'+r.nombre+'</td><td style="font-family:var(--mono);font-size:10px;">'+r.grupo+'</td><td style="font-size:11px;color:var(--ink3);">'+m+'</td><td style="font-size:11px;">'+r.profesor+'</td><td><span class="enms-tag">'+r.enms+'</span></td></tr>';}).join('');
+}
+
+function updMSels(){
+  var mls=Object.keys(KD);
+  document.getElementById('mat-ksel').innerHTML='<option value="">— Selecciona —</option>'+mls.map(function(m){return'<option>'+m+'</option>';}).join('');
+  updCargaSel();
+}
+function updCargaSel(){
+  var mls=Object.keys(MATS);
+  document.getElementById('lec-mat').innerHTML='<option value="">— Selecciona —</option>'+mls.map(function(m){return'<option>'+m+'</option>';}).join('');
+}
+function selMK(){var v=document.getElementById('mat-ksel').value;if(v)document.getElementById('mat-nom').value=v;}
+
+// ===== CONFIG =====
+function addB(){
+  BC++;var id='b'+BC;var div=document.createElement('div');div.className='bloque-box';div.id=id;
+  div.innerHTML='<div class="bloque-head"><span class="bloque-badge">Bloque '+BC+'</span>'+
+    '<div style="display:flex;gap:8px;align-items:center;"><label style="margin:0;font-size:10px;">Reactivos:</label>'+
+    '<input type="number" min="1" max="60" value="5" style="width:58px;" id="'+id+'-n" oninput="genR(\''+id+'\')">'+
+    '<button class="btn btn-danger btn-sm" onclick="delB(\''+id+'\')">✕</button></div></div>'+
+    '<div class="alert info" style="font-size:11px;padding:8px 12px;">💡 Asigna peso decimal a cada reactivo. Todos los bloques juntos deben sumar 1.0000</div>'+
+    '<div class="react-grid" id="'+id+'-r"></div>'+
+    '<div style="text-align:right;margin-top:7px;font-size:11px;color:var(--ink3);">Subtotal bloque: <span id="'+id+'-sub" style="font-family:var(--mono);color:var(--ug-blue);font-weight:700;">0.0000</span></div>';
+  document.getElementById('bloques-c').appendChild(div);genR(id);
+}
+function genR(id){
+  var n=parseInt(document.getElementById(id+'-n').value)||0;
+  var cont=document.getElementById(id+'-r');
+  var prev=[...cont.querySelectorAll('input[type="number"]')].map(function(i){return i.value;});
+  cont.innerHTML='';
+  for(var i=1;i<=n;i++){var pv=prev[i-1]||'';var el=document.createElement('div');el.className='react-item';
+    el.innerHTML='<span class="react-num">R'+i+'</span><input type="number" placeholder="0.0667" step="0.0001" min="0" max="1" value="'+pv+'" style="width:105px;font-family:var(--mono);font-size:11px;" oninput="updP(\''+id+'\')"><span style="font-size:10px;color:var(--ink3);"> = <span id="'+id+'-r'+i+'-p">0.0%</span></span>';
+    cont.appendChild(el);}
+  updP(id);
+}
+function updP(id){
+  var inps=document.querySelectorAll('#'+id+'-r input[type="number"]'),sub=0;
+  inps.forEach(function(inp,i){var v=parseFloat(inp.value)||0;sub+=v;var e=document.getElementById(id+'-r'+(i+1)+'-p');if(e)e.textContent=(v*100).toFixed(1)+'%';});
+  var e=document.getElementById(id+'-sub');if(e)e.textContent=sub.toFixed(4);
+  calcTot();
+}
+function calcTot(){
+  var tot=0;document.querySelectorAll('[id$="-r"] input[type="number"]').forEach(function(i){tot+=parseFloat(i.value)||0;});
+  var e=document.getElementById('pond-tot');e.textContent=tot.toFixed(4);
+  var d=Math.abs(tot-1.0);e.className='pond-val '+(d<0.0005?'ok':tot>1?'bad':'warn');
+  document.getElementById('pond-eq').textContent='→ Máx: '+(tot*100).toFixed(1)+' pts';
+}
+function delB(id){document.getElementById(id).remove();calcTot();}
+function resetM(){document.getElementById('mat-nom').value='';document.getElementById('mat-clave').value='';document.getElementById('mat-per').value='';document.getElementById('mat-ksel').value='';document.getElementById('bloques-c').innerHTML='';BC=0;calcTot();}
+function guardarM(){
+  var nom=document.getElementById('mat-nom').value.trim();if(!nom){alert('Escribe el nombre de la materia');return;}
+  var bloques=[];
+  document.querySelectorAll('[id^="b"][id$="-r"]').forEach(function(cont){
+    var pesos=[...cont.querySelectorAll('input[type="number"]')].map(function(i){return parseFloat(i.value)||0;});
+    if(pesos.length)bloques.push({num:pesos.length,pesos:pesos});
+  });
+  if(!bloques.length){alert('Agrega al menos un bloque');return;}
+  MATS[nom]={nombre:nom,clave:document.getElementById('mat-clave').value.trim(),periodo:document.getElementById('mat-per').value.trim(),bloques:bloques,respuestas:{}};
+  MATACT=nom; updCargaSel();
+  nav('respuestas',document.querySelectorAll('.nav-item')[2]);
+}
+
+// ===== RESPUESTAS =====
+function renderResp(){
+  var ks=Object.keys(MATS);
+  if(!ks.length){document.getElementById('resp-vacio').style.display='block';document.getElementById('resp-c').style.display='none';return;}
+  document.getElementById('resp-vacio').style.display='none';document.getElementById('resp-c').style.display='block';
+  if(!MATACT)MATACT=ks[0];
+  document.getElementById('resp-chips').innerHTML=ks.map(function(k){return'<div class="chip'+(k===MATACT?' active':'')+'" onclick="selRM(\''+k+'\',this)">'+k+'</div>';}).join('');
+  renderRespB();
+}
+function selRM(m,el){MATACT=m;document.querySelectorAll('#resp-chips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');renderRespB();}
+function renderRespB(){
+  var mat=MATS[MATACT];if(!mat)return;
+  var cont=document.getElementById('resp-bloques');cont.innerHTML='';var rg=0;
+  mat.bloques.forEach(function(b,bi){
+    var div=document.createElement('div');div.className='card';
+    var sp=b.pesos.reduce(function(s,p){return s+p;},0);
+    var html='<div class="card-top">Bloque '+(bi+1)+' — '+b.num+' reactivos — '+sp.toFixed(4)+' ('+( sp*100).toFixed(1)+' pts)</div><div class="react-grid">';
+    for(var i=0;i<b.num;i++){rg++;var peso=b.pesos[i]||0,ra=mat.respuestas[rg]||'';
+      html+='<div class="react-item"><span class="react-num">R'+rg+'</span>'+
+        '<span style="font-family:var(--mono);font-size:10px;color:var(--ug-blue);min-width:55px;font-weight:700;">'+peso.toFixed(4)+'</span>'+
+        '<span style="font-size:10px;color:var(--ink3);min-width:36px;">'+(peso*100).toFixed(1)+'%</span>'+
+        '<select style="width:58px;padding:4px;font-family:var(--mono);font-size:11px;text-align:center;'+(ra?'border-color:var(--success);color:var(--success);':'')+'" id="rp'+rg+'" onchange="svR('+rg+',this)">'+
+        '<option value="">-</option>'+['A','B','C','D','E'].map(function(o){return'<option value="'+o+'"'+(ra===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
+    }
+    html+='</div>';div.innerHTML=html;cont.appendChild(div);
+  });
+}
+function svR(n,sel){if(!MATACT)return;MATS[MATACT].respuestas[n]=sel.value;sel.style.borderColor=sel.value?'var(--success)':'';sel.style.color=sel.value?'var(--success)':'';}
+
+// ===== LECTOR =====
+function renderLec(){
+  updCargaSel();if(MATACT)document.getElementById('lec-mat').value=MATACT;infoLec();
+}
+function infoLec(){
+  var mat=MATS[document.getElementById('lec-mat').value];
+  var cont=document.getElementById('lec-info');cont.innerHTML='';if(!mat)return;
+  var tot=mat.bloques.reduce(function(s,b){return s+b.num;},0);
+  var conf=Object.keys(mat.respuestas).length;
+  var sp=mat.bloques.reduce(function(s,b){return s+b.pesos.reduce(function(ss,p){return ss+p;},0);},0);
+  cont.innerHTML='<div class="alert '+(conf===tot?'success':'warn')+'">'+(conf===tot?'✅':'⚠️')+' Reactivos: '+tot+' · Resp: '+conf+'/'+tot+' · Suma pesos: '+(sp*100).toFixed(2)+' pts</div>';
+}
+function handleLec(input){
+  var f=input.files[0];if(!f)return;
+  var ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='txt'||ext==='csv'){var r=new FileReader();r.onload=function(e){document.getElementById('lec-txt').value=e.target.result;prvL(e.target.result.split('\n').slice(0,8));};r.readAsText(f);}
+  else{var r2=new FileReader();r2.onload=function(e){var wb=XLSX.read(e.target.result,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});var ls=rows.map(function(r){return String(r[0]||'').trim();}).filter(function(l){return l.length>=8;});document.getElementById('lec-txt').value=ls.join('\n');prvL(ls.slice(0,8));};r2.readAsArrayBuffer(f);}
+}
+function prvL(ls){
+  document.getElementById('lec-prev').innerHTML='<div class="alert info" style="margin-bottom:8px;">Primeras '+ls.length+' líneas</div>'+
+    ls.filter(function(l){return l.trim();}).map(function(l,i){return'<div style="font-family:var(--mono);font-size:10px;padding:4px 9px;background:var(--surface2);border-radius:6px;margin-bottom:3px;display:flex;gap:10px;"><span style="color:var(--ink3);min-width:14px;">'+(i+1)+'</span><span style="color:var(--ug-blue);font-weight:700;">'+l.substring(0,6)+'</span><span style="color:var(--ug-gold);font-weight:700;">'+(l[6]||'')+'</span><span>'+l.substring(7)+'</span></div>';}).join('');
+}
+function evaluar(){
+  var mn=document.getElementById('lec-mat').value;if(!mn){alert('Selecciona una materia');return;}
+  var mat=MATS[mn];if(!mat){alert('Materia no configurada');return;}
+  var txt=document.getElementById('lec-txt').value.trim();if(!txt){alert('No hay datos');return;}
+  var ls=txt.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>=8;});
+  var km=KD[mn]||[];
+  var reacts=[];
+  mat.bloques.forEach(function(b,bi){b.pesos.forEach(function(p,ri){reacts.push({idx:reacts.length+1,peso:p,correcta:mat.respuestas[reacts.length+1]||'',bloque:bi});});});
+  var totR=reacts.length;
+  var nuevos=ls.map(function(linea){
+    var nua=linea.substring(0,6),resps=linea.substring(7).replace(/\s/g,'').toUpperCase();
+    var al=km.find(function(k){return k.nua===nua;})||{};
+    var pts=0,cor=0,db=mat.bloques.map(function(){return{aciertos:0,puntaje:0};});
+    reacts.forEach(function(r,i){var rp=resps[i]||'';if(rp===r.correcta&&r.correcta!==''){pts+=r.peso;cor++;db[r.bloque].aciertos++;db[r.bloque].puntaje+=r.peso;}});
+    var cal=Math.round(pts*100*10)/10;
+    return{nua:nua,nombre:al.nombre||nua,paterno:al.paterno||'',materno:al.materno||'',grupo:al.grupo||'',profesor:al.profesor||'',enms:al.enms||'',materia:mn,clave:mat.clave||'',periodo:mat.periodo||'',calificacion:cal,correctos:cor,incorrectos:totR-cor,totalReact:totR,
+      detalleBloques:db.map(function(d,bi){return{bloque:bi+1,aciertos:d.aciertos,totalReact:mat.bloques[bi].num,puntaje:d.puntaje,calificacion:Math.round(d.puntaje*100*10)/10};})};
+  });
+  RES=RES.filter(function(r){return r.materia!==mn;}).concat(nuevos);
+  updStatus();alert('✅ '+nuevos.length+' alumnos evaluados en '+mn);
+  nav('resultados',document.querySelectorAll('.nav-item')[4]);
+}
+
+// ===== RESULTADOS =====
+function renderRes(){
+  if(!RES.length){document.getElementById('res-vacio').style.display='block';document.getElementById('res-c').style.display='none';return;}
+  document.getElementById('res-vacio').style.display='none';document.getElementById('res-c').style.display='block';
+  var mls=getMats();if(!DASHMAT||!mls.includes(DASHMAT))DASHMAT=mls[0];
+  document.getElementById('res-chips').innerHTML=mls.map(function(m){return'<div class="chip'+(m===DASHMAT?' active':'')+'" onclick="selDM(\''+m+'\',this)">'+m+'</div>';}).join('');
+  renderResData();
+}
+function selDM(m,el){DASHMAT=m;document.querySelectorAll('#res-chips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');renderResData();}
+function renderResData(){
+  var d=RES.filter(function(r){return r.materia===DASHMAT;});if(!d.length)return;
+  var cs=d.map(function(r){return r.calificacion;}),av=prom(cs).toFixed(1),ap=cs.filter(function(c){return c>=60;}).length;
+  document.getElementById('res-stats').innerHTML=
+    '<div class="stat blue"><div class="stat-lbl">Alumnos</div><div class="stat-val">'+d.length+'</div></div>'+
+    '<div class="stat gold"><div class="stat-lbl">Promedio</div><div class="stat-val">'+av+'</div></div>'+
+    '<div class="stat green"><div class="stat-lbl">Aprobados</div><div class="stat-val">'+ap+'</div><div class="stat-sub">'+((ap/d.length)*100).toFixed(0)+'%</div></div>'+
+    '<div class="stat red"><div class="stat-lbl">Reprobados</div><div class="stat-val">'+(d.length-ap)+'</div><div class="stat-sub">'+( ((d.length-ap)/d.length)*100).toFixed(0)+'%</div></div>'+
+    '<div class="stat navy"><div class="stat-lbl">Máxima</div><div class="stat-val">'+Math.max.apply(null,cs).toFixed(1)+'</div></div>'+
+    '<div class="stat blue"><div class="stat-lbl">Mínima</div><div class="stat-val">'+Math.min.apply(null,cs).toFixed(1)+'</div></div>';
+  var rgs=['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-100'];
+  var cnts=rgs.map(function(_,i){return cs.filter(function(c){return c>=i*10&&c<=(i===9?100:i*10+9);}).length;});
+  var mx=Math.max.apply(null,cnts.concat([1]));
+  document.getElementById('res-histo').innerHTML='<div class="histo">'+
+    cnts.map(function(c,i){var col=i>=9?'var(--success)':i>=6?'var(--ug-blue)':i>=5?'var(--ug-gold)':'var(--danger)';
+      return'<div class="hcol"><div class="hbar" style="height:'+(c/mx*55)+'px;background:'+col+';" title="'+c+'"></div><div class="hlbl">'+c+'</div></div>';}).join('') +
+    '</div><div style="display:flex;justify-content:space-between;margin-top:2px;">'+rgs.map(function(r){return'<span style="font-size:8px;color:var(--ink3);flex:1;text-align:center;">'+r+'</span>';}).join('')+'</div>';
+  var mat=MATS[DASHMAT];
+  if(mat)document.getElementById('res-bloq').innerHTML=mat.bloques.map(function(b,bi){
+    var pm=b.pesos.reduce(function(s,p){return s+p;},0);
+    var acs=d.reduce(function(s,r){return s+(r.detalleBloques&&r.detalleBloques[bi]?r.detalleBloques[bi].aciertos:0);},0);
+    var p=Math.round(acs/(b.num*d.length)*100);var col=colBar(p);
+    return'<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span>Bloque '+(bi+1)+' <span style="font-size:10px;color:var(--ink3);">('+b.num+' react · '+(pm*100).toFixed(1)+' pts)</span></span><span style="font-family:var(--mono);font-weight:700;color:'+col+';">'+p+'%</span></div><div class="prog"><div class="prog-f" style="width:'+p+'%;background:'+col+';"></div></div></div>';
+  }).join('');
+  var ens=[...new Set(d.map(function(r){return r.enms;}).filter(Boolean))];
+  document.getElementById('res-enms').innerHTML='<option value="">Todas las escuelas</option>'+ens.map(function(e){return'<option>'+e+'</option>';}).join('');
+  filtRes();
+}
+function filtRes(){
+  var q=document.getElementById('res-q').value.toLowerCase(),rg=document.getElementById('res-rng').value,en=document.getElementById('res-enms').value;
+  var d=RES.filter(function(r){return r.materia===DASHMAT;}).filter(function(r){return!q||(r.nua.includes(q)||r.nombre.toLowerCase().includes(q));}).filter(function(r){return!rg||rng(r.calificacion)===rg;}).filter(function(r){return!en||r.enms===en;}).sort(function(a,b){return b.calificacion-a.calificacion;});
+  document.getElementById('res-tbody').innerHTML=d.map(function(r,i){
+    var bc=(r.detalleBloques||[]).map(function(b){return'<td style="font-family:var(--mono);font-size:10px;text-align:center;">'+b.aciertos+'/'+b.totalReact+'<br><span style="font-size:9px;color:var(--ink3);">'+b.calificacion+'</span></td>';}).join('');
+    return'<tr><td style="color:var(--ink3);font-family:var(--mono);font-size:9px;">'+(i+1)+'</td><td style="font-family:var(--mono);font-weight:700;font-size:11px;">'+r.nua+'</td><td style="font-size:11px;">'+r.nombre+'</td><td style="font-family:var(--mono);font-size:10px;">'+r.grupo+'</td><td style="font-size:10px;color:var(--ink3);">'+r.profesor+'</td><td><span class="enms-tag">'+r.enms+'</span></td><td>'+calBadge(r.calificacion)+'</td><td style="font-family:var(--mono);font-size:10px;">'+r.correctos+'/'+r.totalReact+'</td>'+bc+'</tr>';
+  }).join('');
+}
+
+// ===== ESCUELAS =====
+function getEscData(fm){
+  var d=fm&&fm!=='TODAS'?RES.filter(function(r){return r.materia===fm;}):RES;
+  return getEscs().map(function(e){var rs=d.filter(function(r){return r.enms===e;}),cs=rs.map(function(r){return r.calificacion;});
+    return{nombre:e,alumnos:new Set(rs.map(function(r){return r.nua;})).size,promedio:prom(cs),pct:pct60(cs),max:cs.length?Math.max.apply(null,cs):0,min:cs.length?Math.min.apply(null,cs):0,materias:new Set(rs.map(function(r){return r.materia;})).size};
+  }).sort(function(a,b){return b.promedio-a.promedio;});
+}
+function renderEsc(){
+  if(!RES.length){document.getElementById('esc-vacio').style.display='block';document.getElementById('esc-c').style.display='none';return;}
+  document.getElementById('esc-vacio').style.display='none';document.getElementById('esc-c').style.display='block';
+  document.getElementById('esc-chips').innerHTML=['TODAS',...getMats()].map(function(m){return'<div class="chip'+(m===ESCMAT?' active':'')+'" onclick="filtEM(\''+m+'\',this)">'+m+'</div>';}).join('');
+  renderEscData();
+}
+function filtEM(m,el){ESCMAT=m;document.querySelectorAll('#esc-chips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');renderEscData();}
+function renderEscData(){
+  var datos=getEscData(ESCMAT==='TODAS'?null:ESCMAT);
+  var t3=datos.slice(0,3);
+  document.getElementById('esc-podio').innerHTML=t3.length>=2?
+    '<div class="podium"><div class="podium-item"><div class="pod-name">'+(t3[1]&&t3[1].nombre||'')+'</div><div class="pod-score">'+(t3[1]&&t3[1].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[1]&&t3[1].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p2">🥈</div></div>'+
+    '<div class="podium-item"><div class="pod-name">'+(t3[0]&&t3[0].nombre||'')+'</div><div class="pod-score">'+(t3[0]&&t3[0].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[0]&&t3[0].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p1">🥇</div></div>'+
+    '<div class="podium-item"><div class="pod-name">'+(t3[2]&&t3[2].nombre||'')+'</div><div class="pod-score">'+(t3[2]&&t3[2].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[2]&&t3[2].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p3">🥉</div></div></div>':'';
+  document.getElementById('esc-grid').innerHTML=datos.map(function(e,i){
+    return'<div class="esc-card" data-rank="'+(i+1)+'"><div class="esc-name">'+e.nombre+'</div><div class="esc-stats"><div class="esc-stat"><div class="esc-stat-val" style="color:'+colBar(e.promedio)+'">'+e.promedio.toFixed(1)+'</div><div class="esc-stat-lbl">Promedio</div></div><div class="esc-stat"><div class="esc-stat-val">'+e.pct.toFixed(0)+'%</div><div class="esc-stat-lbl">Aprobados</div></div><div class="esc-stat"><div class="esc-stat-val">'+e.alumnos+'</div><div class="esc-stat-lbl">Alumnos</div></div></div></div>';
+  }).join('');
+  renderEscTabla(datos);
+}
+function renderEscTabla(datos){
+  document.getElementById('esc-tbody').innerHTML=datos.map(function(e,i){
+    return'<tr><td><span class="rank-num'+(i<3?' r'+(i+1)+'">'+( med(i)||i+1):'">'+(i+1))+'</span></td><td><strong>'+e.nombre+'</strong></td><td style="font-family:var(--mono);">'+e.alumnos+'</td><td>'+calBadge(e.promedio)+'</td>'+
+    '<td><div class="sbar-wrap"><div class="sbar"><div class="sbar-f" style="width:'+e.pct+'%;background:'+colBar(e.pct)+';"></div></div><span style="font-family:var(--mono);font-size:11px;min-width:36px;">'+e.pct.toFixed(0)+'%</span></div></td>'+
+    '<td style="font-family:var(--mono);color:var(--success);">'+e.max.toFixed(1)+'</td><td style="font-family:var(--mono);color:var(--danger);">'+e.min.toFixed(1)+'</td><td style="font-family:var(--mono);">'+e.materias+'</td></tr>';
+  }).join('');
+}
+function filtEsc(q){var d=getEscData(ESCMAT==='TODAS'?null:ESCMAT).filter(function(e){return e.nombre.toLowerCase().includes(q.toLowerCase());});renderEscTabla(d);}
+function ordEsc(by){var d=getEscData(ESCMAT==='TODAS'?null:ESCMAT).sort(function(a,b){return by==='promedio'?b.promedio-a.promedio:by==='pct'?b.pct-a.pct:b.alumnos-a.alumnos;});renderEscTabla(d);}
+
+// ===== MATERIAS =====
+function getMatData(fe){
+  var d=fe&&fe!=='TODAS'?RES.filter(function(r){return r.enms===fe;}):RES;
+  return getMats().map(function(m){var rs=d.filter(function(r){return r.materia===m;}),cs=rs.map(function(r){return r.calificacion;});
+    return{nombre:m,clave:rs[0]&&rs[0].clave||'',alumnos:rs.length,promedio:prom(cs),pct:pct60(cs),max:cs.length?Math.max.apply(null,cs):0,min:cs.length?Math.min.apply(null,cs):0,desv:desv(cs)};
+  }).sort(function(a,b){return b.promedio-a.promedio;});
+}
+function renderMat(){
+  if(!RES.length){document.getElementById('mat-vacio').style.display='block';document.getElementById('mat-c').style.display='none';return;}
+  document.getElementById('mat-vacio').style.display='none';document.getElementById('mat-c').style.display='block';
+  document.getElementById('mat-chips').innerHTML=['TODAS',...getEscs()].map(function(e){return'<div class="chip'+(e===MATESC?' active':'')+'" onclick="filtME(\''+e+'\',this)">'+e+'</div>';}).join('');
+  renderMatData();
+}
+function filtME(e,el){MATESC=e;document.querySelectorAll('#mat-chips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');renderMatData();}
+function renderMatData(){
+  var datos=getMatData(MATESC==='TODAS'?null:MATESC);
+  var mx=Math.max.apply(null,datos.map(function(d){return d.promedio;}).concat([1]));
+  document.getElementById('mat-bprom').innerHTML=datos.map(function(d){return'<div class="hb-wrap"><div class="hb-label"><span>'+d.nombre+'</span><span>'+d.promedio.toFixed(1)+'</span></div><div class="hb"><div class="hb-f" style="width:'+(d.promedio/mx*100)+'%;background:'+colBar(d.promedio)+'"></div></div></div>';}).join('');
+  document.getElementById('mat-bapro').innerHTML=datos.map(function(d){return'<div class="hb-wrap"><div class="hb-label"><span>'+d.nombre+'</span><span>'+d.pct.toFixed(0)+'%</span></div><div class="hb"><div class="hb-f" style="width:'+d.pct+'%;background:'+colBar(d.pct)+'"></div></div></div>';}).join('');
+  document.getElementById('mat-tbody').innerHTML=datos.map(function(m,i){
+    return'<tr><td><span class="rank-num'+(i<3?' r'+(i+1)+'">'+( med(i)||i+1):'">'+(i+1))+'</span></td><td><strong>'+m.nombre+'</strong></td><td style="font-family:var(--mono);font-size:10px;color:var(--ink3);">'+m.clave+'</td><td style="font-family:var(--mono);">'+m.alumnos+'</td><td>'+calBadge(m.promedio)+'</td>'+
+    '<td><div class="sbar-wrap"><div class="sbar"><div class="sbar-f" style="width:'+m.pct+'%;background:'+colBar(m.pct)+';"></div></div><span style="font-family:var(--mono);font-size:11px;min-width:36px;">'+m.pct.toFixed(0)+'%</span></div></td>'+
+    '<td style="font-family:var(--mono);color:var(--success);">'+m.max.toFixed(1)+'</td><td style="font-family:var(--mono);color:var(--danger);">'+m.min.toFixed(1)+'</td><td style="font-family:var(--mono);color:var(--ink3);">'+m.desv.toFixed(1)+'</td></tr>';
+  }).join('');
+}
+
+// ===== PROFESORES =====
+function getProfD(fm,fe){
+  var d=RES;
+  if(fm&&fm!=='TODAS')d=d.filter(function(r){return r.materia===fm;});
+  if(fe&&fe!=='TODAS')d=d.filter(function(r){return r.enms===fe;});
+  return getProfs().map(function(p){var rs=d.filter(function(r){return r.profesor===p;}),cs=rs.map(function(r){return r.calificacion;});
+    return{nombre:p,grupos:new Set(rs.map(function(r){return r.grupo;})).size,alumnos:rs.length,promedio:prom(cs),pct:pct60(cs),materias:[...new Set(rs.map(function(r){return r.materia;}))].join(', '),escuelas:[...new Set(rs.map(function(r){return r.enms;}))].join(', ')};
+  }).filter(function(p){return p.alumnos>0;}).sort(function(a,b){return b.promedio-a.promedio;});
+}
+function renderProf(){
+  if(!RES.length){document.getElementById('prof-vacio').style.display='block';document.getElementById('prof-c').style.display='none';return;}
+  document.getElementById('prof-vacio').style.display='none';document.getElementById('prof-c').style.display='block';
+  document.getElementById('prof-mchips').innerHTML=['TODAS',...getMats()].map(function(m){return'<div class="chip'+((!PROFMAT&&m==='TODAS')||(m===PROFMAT)?' active':'')+'" onclick="selPM(\''+m+'\',this)">'+m+'</div>';}).join('');
+  document.getElementById('prof-echips').innerHTML=['TODAS',...getEscs()].map(function(e){return'<div class="chip'+((!PROFESC&&e==='TODAS')||(e===PROFESC)?' active':'')+'" onclick="selPE(\''+e+'\',this)">'+e+'</div>';}).join('');
+  renderProfGen();
+}
+function renderProfGen(){
+  var datos=getProfD();var t3=datos.slice(0,3);
+  document.getElementById('prof-podio').innerHTML=t3.length>=2?
+    '<div class="podium"><div class="podium-item"><div class="pod-name" style="font-size:11px;">'+(t3[1]&&t3[1].nombre||'')+'</div><div class="pod-score">'+(t3[1]&&t3[1].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[1]&&t3[1].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p2">🥈</div></div>'+
+    '<div class="podium-item"><div class="pod-name" style="font-size:11px;">'+(t3[0]&&t3[0].nombre||'')+'</div><div class="pod-score">'+(t3[0]&&t3[0].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[0]&&t3[0].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p1">🥇</div></div>'+
+    '<div class="podium-item"><div class="pod-name" style="font-size:11px;">'+(t3[2]&&t3[2].nombre||'')+'</div><div class="pod-score">'+(t3[2]&&t3[2].promedio.toFixed(1)||'')+'</div><div class="pod-sub">'+(t3[2]&&t3[2].pct.toFixed(0)||'')+'% aprobados</div><div class="pod-block p3">🥉</div></div></div>':'';
+  renderProfTabla(datos,'prof-tbody',true);
+}
+function renderProfTabla(datos,tid,gen){
+  document.getElementById(tid).innerHTML=datos.map(function(p,i){
+    return'<tr><td><span class="rank-num'+(i<3?' r'+(i+1)+'">'+( med(i)||i+1):'">'+(i+1))+'</span></td><td><strong>'+p.nombre+'</strong></td>'+
+    (gen?'<td style="font-family:var(--mono);">'+p.grupos+'</td>':'')+
+    '<td style="font-family:var(--mono);">'+p.alumnos+'</td><td>'+calBadge(p.promedio)+'</td>'+
+    '<td><div class="sbar-wrap"><div class="sbar"><div class="sbar-f" style="width:'+p.pct+'%;background:'+colBar(p.pct)+';"></div></div><span style="font-family:var(--mono);font-size:11px;min-width:36px;">'+p.pct.toFixed(0)+'%</span></div></td>'+
+    (gen?'<td style="font-size:10px;color:var(--ink3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+p.materias+'">'+p.materias+'</td>':'<td style="font-size:10px;color:var(--ink3);">'+(p.escuelas||p.materias||'')+'</td>')+'</tr>';
+  }).join('');
+}
+function filtProf(q){renderProfTabla(getProfD().filter(function(p){return p.nombre.toLowerCase().includes(q.toLowerCase());}), 'prof-tbody',true);}
+function selPM(m,el){PROFMAT=m==='TODAS'?null:m;document.querySelectorAll('#prof-mchips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');renderProfTabla(getProfD(PROFMAT),'prof-mtbody',false);}
+function selPE(e,el){PROFESC=e==='TODAS'?null:e;document.querySelectorAll('#prof-echips .chip').forEach(function(c){c.classList.remove('active');});el.classList.add('active');
+  var d=RES.filter(function(r){return!PROFESC||r.enms===PROFESC;}),rows=[];
+  getMats().forEach(function(m){var mr=d.filter(function(r){return r.materia===m;});getProfs().forEach(function(p){var pr=mr.filter(function(r){return r.profesor===p;}),cs=pr.map(function(r){return r.calificacion;});if(pr.length)rows.push({nombre:p,materia:m,alumnos:pr.length,promedio:prom(cs),pct:pct60(cs)});});});
+  rows.sort(function(a,b){return b.promedio-a.promedio;});
+  document.getElementById('prof-etbody').innerHTML=rows.map(function(p,i){
+    return'<tr><td><span class="rank-num'+(i<3?' r'+(i+1)+'">'+( med(i)||i+1):'">'+(i+1))+'</span></td><td><strong>'+p.nombre+'</strong></td><td style="font-size:11px;color:var(--ink2);">'+p.materia+'</td><td style="font-family:var(--mono);">'+p.alumnos+'</td><td>'+calBadge(p.promedio)+'</td>'+
+    '<td><div class="sbar-wrap"><div class="sbar"><div class="sbar-f" style="width:'+p.pct+'%;background:'+colBar(p.pct)+';"></div></div><span style="font-family:var(--mono);font-size:11px;min-width:36px;">'+p.pct.toFixed(0)+'%</span></div></td></tr>';
+  }).join('');
+}
+function stab(sec,sub,btn){
+  var pc=document.getElementById(sec+'-c');
+  pc.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+  pc.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById(sec+'-'+sub).classList.add('active');btn.classList.add('active');
+  if(sub==='mat')renderProfTabla(getProfD(PROFMAT),'prof-mtbody',false);
+  if(sub==='esc'&&PROFESC)selPE(PROFESC,document.querySelector('#prof-echips .chip.active')||document.querySelector('#prof-echips .chip'));
+}
+
+// ===== ALUMNOS =====
+function renderAlum(){
+  if(!RES.length){document.getElementById('alum-vacio').style.display='block';document.getElementById('alum-c').style.display='none';return;}
+  document.getElementById('alum-vacio').style.display='none';document.getElementById('alum-c').style.display='block';
+  var esel=document.getElementById('alum-enms'),msel=document.getElementById('alum-mat');
+  esel.innerHTML='<option value="">Todas las escuelas</option>'+getEscs().map(function(e){return'<option>'+e+'</option>';}).join('');
+  msel.innerHTML='<option value="">Todas las materias</option>'+getMats().map(function(m){return'<option>'+m+'</option>';}).join('');
+  filtAlum();
+}
+function filtAlum(){
+  var q=document.getElementById('alum-q').value.toLowerCase(),en=document.getElementById('alum-enms').value,m=document.getElementById('alum-mat').value,rg=document.getElementById('alum-rng').value;
+  var d=RES.filter(function(r){return(!q||r.nua.includes(q))&&(!en||r.enms===en)&&(!m||r.materia===m)&&(!rg||rng(r.calificacion)===rg);}).sort(function(a,b){return b.calificacion-a.calificacion;});
+  document.getElementById('alum-cnt').textContent='— '+d.length+' registros';
+  document.getElementById('alum-tbody').innerHTML=d.map(function(r,i){
+    return'<tr><td style="font-family:var(--mono);font-size:9px;color:var(--ink3);">'+(i+1)+'</td><td style="font-family:var(--mono);font-weight:700;font-size:11px;">'+r.nua+'</td><td style="font-size:11px;">'+r.nombre+'</td><td style="font-size:11px;color:var(--ink2);">'+r.materia+'</td><td><span class="enms-tag">'+r.enms+'</span></td><td style="font-family:var(--mono);font-size:10px;">'+r.grupo+'</td><td style="font-size:10px;color:var(--ink3);">'+r.profesor+'</td><td>'+calBadge(r.calificacion)+'</td><td style="font-size:11px;">'+rngl(rng(r.calificacion))+'</td></tr>';
+  }).join('');
+}
+function expAlum(){
+  var d=RES.sort(function(a,b){return b.calificacion-a.calificacion;});
+  var csv='NUA,Nombre,Materia,Escuela,Grupo,Profesor,Calificacion,Correctos,Total,Rango\n';
+  d.forEach(function(r){csv+=r.nua+',"'+r.nombre+'","'+r.materia+'","'+r.enms+'","'+r.grupo+'","'+r.profesor+'",'+r.calificacion+','+r.correctos+','+r.totalReact+','+rng(r.calificacion)+'\n';});
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='alumnos.csv';a.click();
+}
+
+// ===== REPORTES =====
+function renderRep(){
+  if(!RES.length){document.getElementById('rep-vacio').style.display='block';document.getElementById('rep-c').style.display='none';return;}
+  document.getElementById('rep-vacio').style.display='none';document.getElementById('rep-c').style.display='block';
+  var ens=getEscs();
+  document.getElementById('rep-lista').innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">'+
+    ens.map(function(e){var rs=RES.filter(function(r){return r.enms===e;}),cs=rs.map(function(r){return r.calificacion;});
+      return'<div style="border:1.5px solid var(--border);border-radius:10px;padding:16px;background:var(--surface);"><div style="font-weight:700;color:var(--ug-blue);margin-bottom:6px;">'+e+'</div><div style="font-size:11px;color:var(--ink3);margin-bottom:10px;">'+new Set(rs.map(function(r){return r.nua;})).size+' alumnos · '+prom(cs).toFixed(1)+' promedio</div><button class="btn btn-outline btn-sm" onclick="expEsc(\''+e+'\')">⬇ Excel '+e+'</button></div>';
+    }).join('')+'</div>';
+}
+function expEsc(enms){
+  var inst=document.getElementById('rep-inst').value,per=document.getElementById('rep-per').value,tipo=document.getElementById('rep-tipo').value;
+  var wb=XLSX.utils.book_new();
+  var matsEsc=[...new Set(RES.filter(function(r){return r.enms===enms;}).map(function(r){return r.materia;}))];
+  matsEsc.forEach(function(mat){
+    var regs=RES.filter(function(r){return r.enms===enms&&r.materia===mat;}).sort(function(a,b){return(a.grupo||'').localeCompare(b.grupo||'');});
+    if(!regs.length)return;
+    var nb=regs[0].detalleBloques?regs[0].detalleBloques.length:0;
+    var rows=[[inst,'','','','',per],[tipo],['Materia: '+mat],[]];
+    var h1=['Grupo','NUA','Alumno','Profesor'],h2=['','','',''];
+    for(var b=1;b<=nb;b++){h1.push('Bloque '+b,'');h2.push('Aciertos','Calificación');}
+    h1.push('Global',''); h2.push('Aciertos','Calificación'); h1.push('ENMS'); h2.push('');
+    rows.push(h1);rows.push(h2);
+    regs.forEach(function(r){var row=[r.grupo,r.nua,r.nombre,r.profesor];(r.detalleBloques||[]).forEach(function(b){row.push(b.aciertos,b.calificacion);});row.push(r.correctos,r.calificacion,r.enms);rows.push(row);});
+    var pr=['','','PROMEDIO',''];
+    for(var b2=0;b2<nb;b2++){var acs=regs.map(function(r){return r.detalleBloques&&r.detalleBloques[b2]?r.detalleBloques[b2].aciertos:0;}),cbs=regs.map(function(r){return r.detalleBloques&&r.detalleBloques[b2]?r.detalleBloques[b2].calificacion:0;});pr.push(prom(acs).toFixed(1),prom(cbs).toFixed(1));}
+    pr.push(prom(regs.map(function(r){return r.correctos;})).toFixed(1),prom(regs.map(function(r){return r.calificacion;})).toFixed(1),'');rows.push(pr);
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:8},{wch:10},{wch:30},{wch:28},...Array(nb*2).fill({wch:10}),{wch:10},{wch:12},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,ws,mat.substring(0,28).replace(/[\\/?*[\]]/g,''));
+  });
+  // Hoja ranking profesores
+  var pr=[['RANKING PROFESORES — '+enms],[],['#','Profesor','Materia','Alumnos','Promedio','% Aprobados']];
+  var prd=[];
+  matsEsc.forEach(function(m){var mr=RES.filter(function(r){return r.enms===enms&&r.materia===m;});getProfs().forEach(function(p){var prr=mr.filter(function(r){return r.profesor===p;}),cs=prr.map(function(r){return r.calificacion;});if(prr.length)prd.push([p,m,prr.length,prom(cs).toFixed(1),pct60(cs).toFixed(0)+'%']);});});
+  prd.sort(function(a,b){return parseFloat(b[3])-parseFloat(a[3]);});
+  prd.forEach(function(r,i){pr.push([i+1,...r]);});
+  var wsPr=XLSX.utils.aoa_to_sheet(pr);wsPr['!cols']=[{wch:4},{wch:30},{wch:20},{wch:10},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,wsPr,'Ranking Profesores');
+  XLSX.writeFile(wb,'Resultados_'+enms+'_'+per.replace(/ /g,'_')+'.xlsx');
+}
+function expTodas(){getEscs().forEach(function(e){expEsc(e);});}
+function expRankingXLS(){
+  var wb=XLSX.utils.book_new();
+  // Escuelas
+  var ed=getEscData(),er=[['RANKING ESCUELAS'],[],['#','Escuela','Alumnos','Promedio','% Aprobados','Máx','Mín']];
+  ed.forEach(function(e,i){er.push([i+1,e.nombre,e.alumnos,e.promedio.toFixed(1),e.pct.toFixed(0)+'%',e.max.toFixed(1),e.min.toFixed(1)]);});
+  var ws1=XLSX.utils.aoa_to_sheet(er);ws1['!cols']=[{wch:4},{wch:24},{wch:10},{wch:10},{wch:12},{wch:8},{wch:8}];XLSX.utils.book_append_sheet(wb,ws1,'Ranking Escuelas');
+  // Materias
+  var md=getMatData(),mr=[['RANKING MATERIAS'],[],['#','Materia','Alumnos','Promedio','% Aprobados','Desv.']];
+  md.forEach(function(m,i){mr.push([i+1,m.nombre,m.alumnos,m.promedio.toFixed(1),m.pct.toFixed(0)+'%',m.desv.toFixed(1)]);});
+  var ws2=XLSX.utils.aoa_to_sheet(mr);ws2['!cols']=[{wch:4},{wch:24},{wch:10},{wch:10},{wch:12},{wch:8}];XLSX.utils.book_append_sheet(wb,ws2,'Ranking Materias');
+  // Profesores
+  var pd=getProfD(),pr=[['RANKING PROFESORES'],[],['#','Profesor','Alumnos','Promedio','% Aprobados','Materias']];
+  pd.forEach(function(p,i){pr.push([i+1,p.nombre,p.alumnos,p.promedio.toFixed(1),p.pct.toFixed(0)+'%',p.materias]);});
+  var ws3=XLSX.utils.aoa_to_sheet(pr);ws3['!cols']=[{wch:4},{wch:30},{wch:10},{wch:10},{wch:12},{wch:40}];XLSX.utils.book_append_sheet(wb,ws3,'Ranking Profesores');
+  // Alumnos
+  var ad=RES.sort(function(a,b){return b.calificacion-a.calificacion;}),ar=[['RANKING ALUMNOS'],[],['#','NUA','Nombre','Materia','Escuela','Grupo','Profesor','Calificación']];
+  ad.forEach(function(d,i){ar.push([i+1,d.nua,d.nombre,d.materia,d.enms,d.grupo,d.profesor,d.calificacion]);});
+  var ws4=XLSX.utils.aoa_to_sheet(ar);ws4['!cols']=[{wch:4},{wch:10},{wch:28},{wch:20},{wch:22},{wch:10},{wch:28},{wch:12}];XLSX.utils.book_append_sheet(wb,ws4,'Ranking Alumnos');
+  XLSX.writeFile(wb,'Ranking_General_ENMS.xlsx');
+}
+function expJSON(){
+  var d={resultados:RES,materias:MATS,generado:new Date().toISOString()};
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));a.download='evaluacion_'+new Date().toISOString().split('T')[0]+'.json';a.click();
+}
+
+// INIT
+window.onload=function(){addB();};
+</script>
+</body>
+</html>
